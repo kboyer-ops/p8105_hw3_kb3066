@@ -8,12 +8,13 @@ output: github_document
 ```{r}
 library(tidyverse)
 library(p8105.datasets)
+library(patchwork)
 ```
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(
-  fig.width = 6,
-  fig.asp = .6,
+  fig.width = 7,
+  fig.asp = .7,
   out.width = "90%"
 )
 
@@ -39,32 +40,32 @@ data("instacart")
 
 instacart %>% summarize(n_aisles = n_distinct(aisle_id))
 
-instacart %>% select(aisle_id, product_id) %>% 
-  group_by(aisle_id) %>% count() %>% 
+instacart %>% select(aisle_id, product_id, aisle) %>% 
+  group_by(aisle, aisle_id) %>% count() %>% 
   arrange(desc(n)) 
+
+  instacart %>%  
+    summarise( avg_prod_num = mean(order_number, na.rm = T), 
+               total_users = n_distinct(user_id), 
+               deptartments = n_distinct(department_id)) 
+
+  instacart %>%  
+  ggplot(aes(x = department, product_id)) + 
+  geom_col() + 
+  labs( 
+      y = "Number of products", 
+      x = "Department") + 
+  theme(axis.text.x = element_text(angle = 90)) 
 ```
-There are 134 unique aisles. The aisles with the most items ordered are 83 and 24 with over 150,000 items. 
+There are 134 unique aisles. The aisles with the most items ordered are 83 and 24 with over 150,000 items (fresh vegetables and fresh fruits). 
+
+There average number of products in an order is 17.1, there are 21 departments, and 131,209 users in the dataset. 
+
+The bar graph shows the number of products in each department. 
+
 
 Make a plot that shows the number of items ordered in each aisle, limiting this to aisles with more than 10000 items ordered. Arrange aisles sensibly, and organize your plot so others can read it.
 ```{r }
-instacart %>% 
-  group_by(aisle_id) %>% count() %>% 
-  arrange(desc(n)) %>% 
-  filter(n >10000) %>% 
-  transform(aisle_id = reorder(aisle_id, order(n, decreasing =F))) %>% 
-  ggplot(aes(x = aisle_id, y = n)) + 
-  geom_col() + 
-  coord_flip()
-
-instacart %>% 
-  group_by(aisle_id) %>% count() %>% 
-  arrange(desc(n)) %>% 
-  filter(n >10000) %>% 
-  transform(aisle_id = reorder(aisle_id, order(n, decreasing =F))) %>% 
-  ggplot(aes(x = aisle_id, y = n)) + 
-  geom_col() + 
-  coord_flip()
-
 instacart %>% 
   group_by(aisle) %>% count() %>% 
   arrange(desc(n)) %>% 
@@ -79,10 +80,11 @@ instacart %>%
     y= "Count"
   )
 ```
+The aisles for fresh fruit and fresh vegetables have the most items. 
+
 
 Make a table showing the three most popular items in each of the aisles “baking ingredients”, “dog food care”, and “packaged vegetables fruits”. Include the number of times each item is ordered in your table.
 ```{r}
-
 instacart %>% select(aisle, product_name) %>% 
   group_by(aisle) %>% 
   filter(aisle == "baking ingredients" | aisle == "dog food care" | aisle == "packaged vegetables fruits") %>%  
@@ -90,6 +92,7 @@ instacart %>% select(aisle, product_name) %>%
   slice_max(order_by = n, n = 3) %>% 
   knitr::kable()
 ```
+This table shows the top three items in each of the three aisles, with the number of times each products is ordered in the column titled "n."
 
 
 Make a table showing the mean hour of the day at which Pink Lady Apples and Coffee Ice Cream are ordered on each day of the week; format this table for human readers (i.e. produce a 2 x 7 table).
@@ -111,8 +114,8 @@ instacart %>% filter(product_name == "Pink Lady Apples" | product_name == "Coffe
     values_from = mean_hr
   ) %>% relocate(product_name, Sunday, Monday, Tuesday, Wednesday, Thursday, Friday, Saturday) %>% 
   knitr::kable(caption = "Mean time of order each day of week")
-  
 ```
+The mean time of ordering Pink Lady apples and coffee ice cream for each day of the week, in military time. The mean time of ordering is mostly in the late morning and early afternoon. 
 
 
 ## Problem 2
@@ -129,13 +132,13 @@ Using this dataset, do or answer the following (commenting on the results of eac
 
 
 ```{r}
-data("brfss_smart2010") 
+data("brfss_smart2010")
+
 brfss_smart2010 <- brfss_smart2010 %>% janitor::clean_names() %>% 
   filter(topic == "Overall Health") %>% 
   filter(response == "Poor" | response =="Fair" | response == "Good" | response == "Very good" | response== "Excellent") %>% 
   mutate(response = factor(response, levels = c("Poor", "Fair", "Good", "Very good", "Excellent")))
 ```
-
 
 In 2002, which states were observed at 7 or more locations? What about in 2010?
 
@@ -145,12 +148,13 @@ brfss_smart2010 %>% filter(year == 2002) %>% group_by(locationabbr) %>% distinct
 brfss_smart2010 %>% filter(year == 2010) %>% group_by(locationabbr) %>% distinct(locationdesc) %>% count() %>% filter(n >=7)
 ```
 In 2002, Connecticut, Florida, Massachusetts, North Carolina, New Jersey, and Pennsylvania had 7 or more locations. 
+
 In 2010, California, Colorado, Florida, Massachusetts, Maryland, North Carolina, Nebraska, New Jersey, New York, Ohio, Pennsylvania, South Carolina, Texas, and Washington had 7 or more locations. 
 
 
 Construct a dataset that is limited to Excellent responses, and contains, year, state, and a variable that averages the data_value across locations within a state. Make a “spaghetti” plot of this average value over time within a state (that is, make a plot showing a line for each state across years – the geom_line geometry and group aesthetic will help).
 ```{r}
-brfss_smart2010 %>% 
+prob2 <- brfss_smart2010 %>% 
   filter(response == "Excellent") %>% 
   select(year,locationdesc, data_value ) %>% 
   group_by(locationdesc ) %>%
@@ -163,31 +167,47 @@ brfss_smart2010 %>%
   mutate(data_avg = mean(data_value, na.rm = T)) %>% 
   ggplot(aes(y = data_avg, x = year)) + 
   geom_smooth(aes(color= locationabbr), se = FALSE) + 
-  labs(
-    x = "Year", 
-    y = "Average Data Value", 
-    fill = "State", 
-    title = "Average values among 'Excellent' responses in each state"
-  ) + 
-  theme(plot.title = element_text(hjust = 0.5), 
-        legend.position = "right")
+  scale_color_discrete(name = "State") +
+  xlab("Year") +  
+  ylab("Average Data Value") + 
+  ggtitle("Average values among 'Excellent' responses in each state") +
+  theme(legend.position = "right"
+        ) 
 ```
+
 
 Make a two-panel plot showing, for the years 2006, and 2010, distribution of data_value for responses (“Poor” to “Excellent”) among locations in NY State.
 ```{r}
 ny <- brfss_smart2010 %>% filter(locationabbr == "NY")  %>% select(response, data_value, year) 
 
-ny %>% filter(year == 2006 | year == 2010) %>% 
+ny06 <- ny %>% filter(year == 2006) %>% 
   ggplot(aes(y = data_value, x = year, fill = response )) + 
   geom_col(position = "dodge") + 
-  scale_x_continuous( breaks = c(2006, 2010)) + 
+  scale_x_continuous( breaks = c( )) + 
+  ylim(0, 40) +
   labs(
-    x = "Year",  
+    x = "",  
     y = "Data Value", 
     fill = "Responses") + 
-  ggtitle("Distribution of data values among responses in New York") + 
+  ggtitle("2006") + 
   theme(plot.title = element_text(hjust = 0.5)) 
+
+ny10 <- ny %>% filter(year == 2010) %>% 
+  ggplot(aes(y = data_value, x = year, fill = response )) + 
+  geom_col(position = "dodge") + 
+  scale_x_continuous( breaks = c(  )) + 
+  labs(
+    x = "",  
+    y = "  ") + 
+  ggtitle("2010") + 
+  theme(legend.position = "none", 
+        plot.title = element_text(hjust = 0.5))  
+  
+ny06 + ny10 + plot_layout(guides = "collect") + 
+  plot_annotation(title = "Distribution of Data Values by Response in NY", 
+  theme = theme(plot.title = element_text(size = 16, hjust= 0.6)) )
 ```
+In 2006, the most data fell into "Good" and in 2010 most of the data fell into "Very good."
 
 
 ## Problem 3 
@@ -202,19 +222,45 @@ accel <- read_csv("accel_data.csv") %>% janitor::clean_names() %>%
   mutate(day_type = if_else(day == "Saturday" | day == "Sunday", "Weekend", "Weekday")) %>% 
   select(week, day_id, day, day_type, everything())
 dim(accel)
-glimpse(accel[ , 1:5])
 ```
+In the accel dataset, there are 35 rows, one for each day of the week for 5 weeks. There are a total of 1444 columns, where 1440 have activity data for each minute of the day. Additional variables are the week number, the day id, the day of the week and whether the day was a weekday or weekend.  
 
 
 Traditional analyses of accelerometer data focus on the total activity over the day. Using your tidied dataset, aggregate accross minutes to create a total activity variable for each day, and create a table showing these totals. Are any trends apparent?
 
 ```{r}
-somehow make a variable of peoples daily activity total 
-for each row, add all the columns 
+accel <- accel %>% mutate(day_total = rowSums(across(activity_1:activity_1440, na.rm = T)))
 
-accel %>% pivot_longer(names_to = "day", 
-                       values_to = "total activity")
+accel  %>% group_by(day) %>% select(week, day, day_total) %>% 
+  pivot_wider( names_from = day, 
+               values_from = day_total) %>% 
+  select(week, Sunday, Monday, Tuesday, Wednesday, Thursday, Friday, Saturday) %>% 
+  knitr::kable()
 ```
+The activity throughout the weeks generally increases from Monday to Sunday, there are no clear trends. Many of the days have a total activity ranging from 300,000 to 500,000. 
+
 
 Accelerometer data allows the inspection activity over the course of the day. Make a single-panel plot that shows the 24-hour activity time courses for each day and use color to indicate day of the week. Describe in words any patterns or conclusions you can make based on this graph.
- 
+```{r}
+prob3 <- accel %>%
+  pivot_longer(activity_1:activity_1440,
+    names_to = "activity",
+    values_to = "value"
+  ) %>% 
+  mutate(activity = as.factor(activity))
+  
+prob3 %>% 
+  ggplot(aes(x = activity, y=value)) +
+  geom_line(aes(color = day), alpha = 0.5)  +
+  xlab("Activity") + 
+  ylab("Value") + 
+  ggtitle("Activity over 24 hours")+ 
+  theme(legend.position = "bottom", 
+        plot.title = element_text(hjust = 0.5), 
+        legend.text = element_text(size = 10)) + 
+  scale_color_discrete(name = "Day")  + 
+  scale_x_discrete(breaks = c(prob3[1 , 6], prob3[25200 , 6], prob3[ 50400, 6]), 
+                     labels = c("12:01 am", "12 pm", "12 am")) + 
+  theme(axis.text.x = element_text(angle = 90))
+```
+Appear to more active in Monday morning (orange color) and more active Sunday afternoon/evening (turquoise color). There is a dip in activity for all days towards mid day. 
